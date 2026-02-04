@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Home of News </title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#2563eb">
+<link rel="manifest" href="manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --header1:#2563eb;
+  --header2:#1d4ed8;
+  --headerText:#ffffff;
+  --bg:#f4f7fb;
+  --card:#ffffff;
+  --text:#0f172a;
+  --muted:#475569;
+  --accent:#2563eb;
+}
+body.dark{
+  --bg:#0b1220;
+  --card:#111827;
+  --text:#e5e7eb;
+  --muted:#9ca3af;
+  --header1:#020617;
+  --header2:#020617;
+  --headerText:#f8fafc;
+  --bg:#0b1220;
+  --card:#111827;
+  --text:#f8fafc;
+  --muted:#94a3b8;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text)}
+header{
+  position:sticky;
+  top:0;
+  z-index:10;
+  background:linear-gradient(135deg,var(--header1),var(--header2));
+  color:var(--headerText);
+  padding:14px;
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+header h1{margin:0;font-size:20px}
+.search{flex:1}
+.search input{width:100%;padding:10px;border-radius:10px;border:none}
+header button{background:rgba(255,255,255,.2);border:none;color:#fff;padding:10px;border-radius:10px;cursor:pointer}
+nav{display:flex;gap:10px;overflow-x:auto;padding:10px;background:var(--card)}
+nav button{border:1px solid #e5e7eb;background:var(--card);padding:8px 14px;border-radius:999px;cursor:pointer}
+nav button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+#news{padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}
+.card{background:var(--card);border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,.08);cursor:pointer;transition:.25s}
+.card:hover{transform:translateY(-6px)}
+.card img{width:100%;height:180px;object-fit:cover}
+.card .content{padding:14px}
+.card h3{margin:0 0 6px;font-size:16px}
+.card p{margin:0;font-size:14px;color:var(--muted)}
+#loader{text-align:center;padding:20px;color:var(--muted)}
+#detail{position:fixed;inset:0;background:var(--bg);display:none;overflow:auto;z-index:20}
+#detail .wrap{max-width:800px;margin:auto;padding:20px}
+#detail img{width:100%;border-radius:14px;margin-bottom:15px}
+#detail button{margin-bottom:15px;padding:10px 14px;border:none;border-radius:10px;background:var(--accent);color:#fff;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <h1>News Worldwide</h1>
+  <div class="search"><input id="search" placeholder="Search news..."></div>
+  <button onclick="toggleDark()">Dark</button>
+</header>
+<nav id="categories"></nav>
+<div id="news"></div>
+<div id="loader">Loading…</div>
+
+<!-- Article Detail -->
+<div id="detail">
+  <div class="wrap">
+    <button onclick="closeDetail()">Back</button>
+    <h2 id="dTitle"></h2>
+    <img id="dImage">
+    <p id="dDesc"></p>
+    <a id="dLink" target="_blank">Read full article</a>
+  </div>
+</div>
+
+<script>
+/* ========= CONFIG ========= */
+const API_KEY="ced554a664c2da8e42afae9aec35e5b4";
+
+const topics=["breaking-news","world","nation","business","technology","sports","science","health","entertainment"];
+let topic="breaking-news";
+let page=1;
+let loading=false;
+let articles=[];
+
+const newsEl=document.getElementById('news');
+const loader=document.getElementById('loader');
+const searchEl=document.getElementById('search');
+const nav=document.getElementById('categories');
+
+/* Categories */
+topics.forEach(t=>{
+  const b=document.createElement('button');
+  b.textContent=t.replace('-',' ');
+  if(t===topic) b.classList.add('active');
+  b.onclick=()=>{
+    document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    topic=t;page=1;articles=[];newsEl.innerHTML='';loadNews();
+  };
+  nav.appendChild(b);
+});
+
+async function loadNews(){
+  if(loading) return;
+  loading=true;
+  loader.textContent='Loading…';
+
+  const url=`https://gnews.io/api/v4/top-headlines?topic=${topic}&lang=en&country=in&max=10&page=${page}&apikey=${API_KEY}&_=${Date.now()}`;
+  const proxy=`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+
+  try{
+    const res=await fetch(proxy);
+    const data=await res.json();
+    if(!data.articles) return;
+    articles.push(...data.articles);
+    render();
+    page++;
+  }catch(e){loader.textContent='Failed to load';}
+  loading=false;
+}
+
+function render(){
+  const q=searchEl.value.toLowerCase();
+  newsEl.innerHTML='';
+  articles.filter(a=>a.title.toLowerCase().includes(q)).forEach((a,i)=>{
+    const c=document.createElement('div');
+    c.className='card';
+    c.innerHTML=`<img src="${a.image||'https://via.placeholder.com/400x200'}"><div class="content"><h3>${a.title}</h3><p>${a.description||''}</p></div>`;
+    c.onclick=()=>openDetail(a);
+    newsEl.appendChild(c);
+  });
+}
+
+/* Infinite scroll */
+window.addEventListener('scroll',()=>{
+  if(window.innerHeight+window.scrollY>=document.body.offsetHeight-300){
+    loadNews();
+  }
+});
+
+searchEl.addEventListener('input',render);
+
+/* Detail view */
+function openDetail(a){
+  document.getElementById('detail').style.display='block';
+  document.getElementById('dTitle').textContent=a.title;
+  document.getElementById('dImage').src=a.image||'';
+  document.getElementById('dDesc').textContent=a.content||a.description||'';
+  document.getElementById('dLink').href=a.url;
+}
+function closeDetail(){document.getElementById('detail').style.display='none';}
+
+function toggleDark(){document.body.classList.toggle('dark');}
+
+/* Initial load */
+loadNews();
+
+/* Service Worker for PWA */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
+</body>
+</html>
